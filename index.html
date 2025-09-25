@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>WS Client (for GitHub Pages)</title>
+        <style>
+            body {
+                font-family: system-ui, sans-serif;
+                max-width: 720px;
+                margin: 2rem;
+            }
+            #log {
+                white-space: pre-wrap;
+                border: 1px solid #ddd;
+                padding: 8px;
+                min-height: 160px;
+                background: #fafafa;
+            }
+            input[type="text"] {
+                width: 60%;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>WebSocket Client</h1>
+        <p>
+            接続先（wss URL）:
+            <input
+                id="url"
+                type="text"
+                value=""
+                placeholder="例: wss://abcd1234.ngrok.io"
+            />
+        </p>
+        <p>
+            <button id="connect">Connect</button>
+            <button id="disconnect" disabled>Disconnect</button>
+        </p>
+        <p>
+            <input id="key1-text" placeholder="Send message..." type="text" />
+            <button id="send-key1" disabled>Send</button>
+        </p>
+        <p>
+            <input id="key2-text" placeholder="Send message..." type="text" />
+            <button id="send-key2" disabled>Send</button>
+        </p>
+
+        <script>
+            const $ = (id) => document.getElementById(id);
+
+            let ws = null;
+
+            $("connect").onclick = () => {
+                const url = $("url").value.trim();
+                if (!url) {
+                    alert(
+                        "wss URL を入力してください（例: wss://abcd1234.ngrok.io）",
+                    );
+                    return;
+                }
+                try {
+                    ws = new WebSocket(url);
+                } catch (e) {
+                    console.warn("WebSocket error: " + e);
+                    return;
+                }
+                console.log("Connecting to " + url + " ...");
+                $("connect").disabled = true;
+
+                ws.onopen = () => {
+                    console.log("OPEN");
+                    $("disconnect").disabled = false;
+                    $("send-key1").disabled = false;
+                    $("send-key2").disabled = false;
+                };
+                ws.onmessage = (ev) => {
+                    console.log("RECV: " + ev.data);
+                };
+                ws.onclose = (ev) => {
+                    console.log(
+                        "CLOSE code=" + ev.code + " reason=" + ev.reason,
+                    );
+                    $("connect").disabled = false;
+                    $("disconnect").disabled = true;
+                    $("send-key1").disabled = true;
+                    $("send-key2").disabled = true;
+                };
+                ws.onerror = (ev) => {
+                    console.log("ERROR (check console)");
+                    console.error(ev);
+                };
+            };
+
+            $("disconnect").onclick = () => {
+                if (ws) ws.close();
+            };
+
+            $("send-key1").onclick = () => {
+                const m = $("key1-text").value;
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    console.log("Not connected");
+                    return;
+                }
+                ws.send(m);
+                console.log("SENT: " + m);
+                // $("key1-text").value = "";
+            };
+
+            $("send-key2").onclick = () => {
+                const m = $("key2-text").value;
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    console.log("Not connected");
+                    return;
+                }
+                ws.send(m);
+                console.log("SENT: " + m);
+                // $("key2-text").value = "";
+            };
+        </script>
+    </body>
+</html>
