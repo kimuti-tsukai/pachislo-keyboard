@@ -2,53 +2,414 @@
 <html>
     <head>
         <meta charset="utf-8" />
-        <title>WS Client (for GitHub Pages)</title>
+        <title>Rich WebSocket Client</title>
         <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
             body {
-                font-family: system-ui, sans-serif;
-                max-width: 720px;
-                margin: 2rem;
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #1a1a1a 0%, #2d2d30 100%);
+                color: #ffffff;
+                min-height: 100vh;
+                padding: 2rem;
             }
-            #log {
-                white-space: pre-wrap;
-                border: 1px solid #ddd;
-                padding: 8px;
-                min-height: 160px;
-                background: #fafafa;
+
+            .container {
+                max-width: 900px;
+                margin: 0 auto;
             }
-            input[type="text"] {
-                width: 60%;
+
+            h1 {
+                text-align: center;
+                margin-bottom: 3rem;
+                font-size: 2.5rem;
+                background: linear-gradient(45deg, #00d4ff, #0099cc);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                text-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+            }
+
+            .connection-section {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 2rem;
+                margin-bottom: 2rem;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                transition: all 0.3s ease;
+            }
+
+            .connection-section.connected {
+                background: rgba(0, 255, 0, 0.1);
+                border-color: rgba(0, 255, 0, 0.3);
+            }
+
+            .url-input-group {
+                display: flex;
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+                transition: all 0.3s ease;
+            }
+
+            .url-input-group.hidden {
+                opacity: 0;
+                transform: translateY(-20px);
+                pointer-events: none;
+                height: 0;
+                margin: 0;
+                overflow: hidden;
+            }
+
+            #url {
+                flex: 1;
+                padding: 1rem;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+                border-radius: 12px;
+                background: rgba(0, 0, 0, 0.3);
+                color: #ffffff;
+                font-size: 1rem;
+                transition: all 0.3s ease;
+            }
+
+            #url:focus {
+                outline: none;
+                border-color: #00d4ff;
+                box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            }
+
+            .connection-controls {
+                display: flex;
+                gap: 1rem;
+                justify-content: center;
+            }
+
+            .btn {
+                padding: 1rem 2rem;
+                border: none;
+                border-radius: 12px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none !important;
+            }
+
+            .btn-connect {
+                background: linear-gradient(45deg, #00d4ff, #0099cc);
+                color: white;
+                box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+            }
+
+            .btn-connect:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4);
+            }
+
+            .btn-disconnect {
+                background: linear-gradient(45deg, #ff4757, #c44569);
+                color: white;
+                box-shadow: 0 4px 20px rgba(255, 71, 87, 0.3);
+            }
+
+            .btn-disconnect:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 30px rgba(255, 71, 87, 0.4);
+            }
+
+            .status-indicator {
+                text-align: center;
+                margin-top: 1rem;
+                font-weight: 600;
+                font-size: 1.1rem;
+            }
+
+            .status-disconnected {
+                color: #ff6b6b;
+            }
+
+            .status-connected {
+                color: #51cf66;
+                text-shadow: 0 0 10px rgba(81, 207, 102, 0.5);
+            }
+
+            .main-controls {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 3rem;
+                margin: 3rem 0;
+                height: 70vh;
+                min-height: 500px;
+            }
+
+            .control-card {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 30px;
+                padding: 3rem;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                transition: all 0.3s ease;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .control-card:hover {
+                transform: translateY(-10px) scale(1.02);
+                box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+                border-color: rgba(255, 255, 255, 0.4);
+            }
+
+            .control-title {
+                font-size: 2.5rem;
+                font-weight: 700;
+                margin-bottom: 2rem;
+                color: #00d4ff;
+                text-align: center;
+                text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            }
+
+            .message-input {
+                width: 100%;
+                padding: 1.5rem;
+                border: 3px solid rgba(255, 255, 255, 0.3);
+                border-radius: 20px;
+                background: rgba(0, 0, 0, 0.4);
+                color: #ffffff;
+                font-size: 1.3rem;
+                margin-bottom: 2rem;
+                transition: all 0.3s ease;
+                text-align: center;
+            }
+
+            .message-input:focus {
+                outline: none;
+                border-color: #00d4ff;
+                box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+                transform: scale(1.05);
+            }
+
+            .btn-send {
+                width: 100%;
+                padding: 3rem 2rem;
+                border: none;
+                border-radius: 25px;
+                font-size: 1.8rem;
+                font-weight: 700;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                background: linear-gradient(45deg, #5f27cd, #341f97);
+                color: white;
+                box-shadow: 0 10px 40px rgba(95, 39, 205, 0.4);
+                flex-grow: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 200px;
+            }
+
+            .btn-send:hover:not(:disabled) {
+                transform: translateY(-5px) scale(1.05);
+                box-shadow: 0 20px 60px rgba(95, 39, 205, 0.6);
+            }
+
+            .btn-send:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none !important;
+            }
+
+            .btn-send.key1 {
+                background: linear-gradient(45deg, #00d4ff, #0099cc);
+                box-shadow: 0 10px 40px rgba(0, 212, 255, 0.4);
+            }
+
+            .btn-send.key1:hover:not(:disabled) {
+                box-shadow: 0 20px 60px rgba(0, 212, 255, 0.6);
+            }
+
+            .btn-send.key2 {
+                background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+                box-shadow: 0 10px 40px rgba(255, 107, 107, 0.4);
+            }
+
+            .btn-send.key2:hover:not(:disabled) {
+                box-shadow: 0 20px 60px rgba(255, 107, 107, 0.6);
+            }
+
+            /* アニメーション */
+            @keyframes pulse {
+                0% {
+                    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+                }
+                50% {
+                    box-shadow: 0 0 40px rgba(0, 212, 255, 0.6);
+                }
+                100% {
+                    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+                }
+            }
+
+            .pulse {
+                animation: pulse 2s infinite;
+            }
+
+            /* レスポンシブ対応 */
+            @media (max-width: 768px) {
+                .main-controls {
+                    grid-template-columns: 1fr;
+                    gap: 1rem;
+                }
+
+                .connection-controls {
+                    flex-direction: column;
+                }
+
+                h1 {
+                    font-size: 2rem;
+                }
             }
         </style>
     </head>
     <body>
-        <h1>WebSocket Client</h1>
-        <p>
-            接続先（wss URL）:
-            <input
-                id="url"
-                type="text"
-                value=""
-                placeholder="例: wss://abcd1234.ngrok.io"
-            />
-        </p>
-        <p>
-            <button id="connect">Connect</button>
-            <button id="disconnect" disabled>Disconnect</button>
-        </p>
-        <p>
-            <input id="key1-text" placeholder="Send message..." type="text" />
-            <button id="send-key1" disabled>Send</button>
-        </p>
-        <p>
-            <input id="key2-text" placeholder="Send message..." type="text" />
-            <button id="send-key2" disabled>Send</button>
-        </p>
+        <div class="container">
+            <h1>🚀 WebSocket Client</h1>
+
+            <div class="connection-section" id="connection-section">
+                <div class="url-input-group" id="url-input-group">
+                    <input
+                        id="url"
+                        type="text"
+                        placeholder="例: wss://abcd1234.ngrok.io"
+                        value=""
+                    />
+                </div>
+
+                <div class="connection-controls">
+                    <button id="connect" class="btn btn-connect">
+                        🔌 Connect
+                    </button>
+                    <button id="disconnect" class="btn btn-disconnect" disabled>
+                        🔥 Disconnect
+                    </button>
+                </div>
+
+                <div class="status-indicator">
+                    <span id="status" class="status-disconnected"
+                        >● Disconnected</span
+                    >
+                </div>
+            </div>
+
+            <div
+                class="main-controls"
+                id="main-controls"
+                style="opacity: 0.3; pointer-events: none"
+            >
+                <div class="control-card">
+                    <div class="control-title">💎 Action Button 1</div>
+                    <input
+                        id="key1-text"
+                        class="message-input"
+                        placeholder="Enter message..."
+                        type="text"
+                    />
+                    <button id="send-key1" class="btn-send key1" disabled>
+                        Send Message 1
+                    </button>
+                </div>
+
+                <div class="control-card">
+                    <div class="control-title">🔥 Action Button 2</div>
+                    <input
+                        id="key2-text"
+                        class="message-input"
+                        placeholder="Enter message..."
+                        type="text"
+                    />
+                    <button id="send-key2" class="btn-send key2" disabled>
+                        Send Message 2
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <script>
             const $ = (id) => document.getElementById(id);
 
             let ws = null;
+            let longPressTimer1 = null;
+            let longPressTimer2 = null;
+            let isLongPressing1 = false;
+            let isLongPressing2 = false;
+
+            // ログ出力関数
+            function log(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                console.log(`[${timestamp}] ${message}`);
+            }
+
+            // メッセージ送信関数
+            function sendMessage(buttonId, messageInputId, buttonNumber) {
+                const m = $(messageInputId).value;
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    log("❌ Not connected");
+                    return false;
+                }
+                ws.send(m);
+                log(`🚀 SENT (Button ${buttonNumber}): ${m}`);
+                return true;
+            }
+
+            // 長押し処理開始
+            function startLongPress(buttonNumber) {
+                if (buttonNumber === 1) {
+                    isLongPressing1 = true;
+                    longPressTimer1 = setInterval(() => {
+                        if (isLongPressing1) {
+                            sendMessage("send-key1", "key1-text", 1);
+                        }
+                    }, 500);
+                } else if (buttonNumber === 2) {
+                    isLongPressing2 = true;
+                    longPressTimer2 = setInterval(() => {
+                        if (isLongPressing2) {
+                            sendMessage("send-key2", "key2-text", 2);
+                        }
+                    }, 500);
+                }
+            }
+
+            // 長押し処理停止
+            function stopLongPress(buttonNumber) {
+                if (buttonNumber === 1) {
+                    isLongPressing1 = false;
+                    if (longPressTimer1) {
+                        clearInterval(longPressTimer1);
+                        longPressTimer1 = null;
+                    }
+                } else if (buttonNumber === 2) {
+                    isLongPressing2 = false;
+                    if (longPressTimer2) {
+                        clearInterval(longPressTimer2);
+                        longPressTimer2 = null;
+                    }
+                }
+            }
 
             $("connect").onclick = () => {
                 const url = $("url").value.trim();
@@ -58,64 +419,190 @@
                     );
                     return;
                 }
+
                 try {
                     ws = new WebSocket(url);
                 } catch (e) {
-                    console.warn("WebSocket error: " + e);
+                    log("WebSocket error: " + e);
                     return;
                 }
-                console.log("Connecting to " + url + " ...");
+
+                log("Connecting to " + url + " ...");
                 $("connect").disabled = true;
 
                 ws.onopen = () => {
-                    console.log("OPEN");
+                    log("✅ CONNECTION ESTABLISHED");
+
+                    // UI の更新
                     $("disconnect").disabled = false;
                     $("send-key1").disabled = false;
                     $("send-key2").disabled = false;
+                    $("status").textContent = "● Connected";
+                    $("status").className = "status-connected";
+                    $("connection-section").classList.add("connected");
+                    $("main-controls").style.opacity = "1";
+                    $("main-controls").style.pointerEvents = "auto";
+
+                    // URL入力欄を非表示
+                    $("url-input-group").classList.add("hidden");
                 };
+
                 ws.onmessage = (ev) => {
-                    console.log("RECV: " + ev.data);
+                    log("📩 RECV: " + ev.data);
                 };
+
                 ws.onclose = (ev) => {
-                    console.log(
-                        "CLOSE code=" + ev.code + " reason=" + ev.reason,
+                    log(
+                        `❌ CONNECTION CLOSED (code=${ev.code}, reason=${ev.reason})`,
                     );
+
+                    // 長押しタイマーをクリア
+                    stopLongPress(1);
+                    stopLongPress(2);
+
+                    // UI の復元
                     $("connect").disabled = false;
                     $("disconnect").disabled = true;
                     $("send-key1").disabled = true;
                     $("send-key2").disabled = true;
+                    $("status").textContent = "● Disconnected";
+                    $("status").className = "status-disconnected";
+                    $("connection-section").classList.remove("connected");
+                    $("main-controls").style.opacity = "0.3";
+                    $("main-controls").style.pointerEvents = "none";
+
+                    // URL入力欄を表示
+                    $("url-input-group").classList.remove("hidden");
                 };
+
                 ws.onerror = (ev) => {
-                    console.log("ERROR (check console)");
+                    log("⚠️ ERROR occurred (check browser console)");
                     console.error(ev);
                 };
             };
 
             $("disconnect").onclick = () => {
-                if (ws) ws.close();
+                if (ws) {
+                    ws.close();
+                    log("🔌 Disconnection requested");
+                }
             };
 
+            // ボタン1のイベント設定
             $("send-key1").onclick = () => {
-                const m = $("key1-text").value;
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    console.log("Not connected");
-                    return;
-                }
-                ws.send(m);
-                console.log("SENT: " + m);
-                // $("key1-text").value = "";
+                sendMessage("send-key1", "key1-text", 1);
             };
 
-            $("send-key2").onclick = () => {
-                const m = $("key2-text").value;
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    console.log("Not connected");
-                    return;
+            // マウス長押し処理 - ボタン1
+            $("send-key1").addEventListener("mousedown", (e) => {
+                if (e.button === 0 && !$("send-key1").disabled) {
+                    // 左クリックのみ
+                    e.preventDefault();
+                    sendMessage("send-key1", "key1-text", 1); // 最初の送信
+                    startLongPress(1);
                 }
-                ws.send(m);
-                console.log("SENT: " + m);
-                // $("key2-text").value = "";
+            });
+
+            $("send-key1").addEventListener("mouseup", (e) => {
+                if (e.button === 0) {
+                    stopLongPress(1);
+                }
+            });
+
+            $("send-key1").addEventListener("mouseleave", () => {
+                stopLongPress(1);
+            });
+
+            // タッチ長押し処理 - ボタン1
+            $("send-key1").addEventListener("touchstart", (e) => {
+                if (!$("send-key1").disabled) {
+                    e.preventDefault();
+                    sendMessage("send-key1", "key1-text", 1); // 最初の送信
+                    startLongPress(1);
+                }
+            });
+
+            $("send-key1").addEventListener("touchend", (e) => {
+                e.preventDefault();
+                stopLongPress(1);
+            });
+
+            $("send-key1").addEventListener("touchcancel", (e) => {
+                e.preventDefault();
+                stopLongPress(1);
+            });
+
+            // ボタン2のイベント設定
+            $("send-key2").onclick = () => {
+                sendMessage("send-key2", "key2-text", 2);
             };
+
+            // マウス長押し処理 - ボタン2
+            $("send-key2").addEventListener("mousedown", (e) => {
+                if (e.button === 0 && !$("send-key2").disabled) {
+                    // 左クリックのみ
+                    e.preventDefault();
+                    sendMessage("send-key2", "key2-text", 2); // 最初の送信
+                    startLongPress(2);
+                }
+            });
+
+            $("send-key2").addEventListener("mouseup", (e) => {
+                if (e.button === 0) {
+                    stopLongPress(2);
+                }
+            });
+
+            $("send-key2").addEventListener("mouseleave", () => {
+                stopLongPress(2);
+            });
+
+            // タッチ長押し処理 - ボタン2
+            $("send-key2").addEventListener("touchstart", (e) => {
+                if (!$("send-key2").disabled) {
+                    e.preventDefault();
+                    sendMessage("send-key2", "key2-text", 2); // 最初の送信
+                    startLongPress(2);
+                }
+            });
+
+            $("send-key2").addEventListener("touchend", (e) => {
+                e.preventDefault();
+                stopLongPress(2);
+            });
+
+            $("send-key2").addEventListener("touchcancel", (e) => {
+                e.preventDefault();
+                stopLongPress(2);
+            });
+
+            // Enterキーでの送信をサポート
+            $("key1-text").addEventListener("keypress", (e) => {
+                if (e.key === "Enter" && !$("send-key1").disabled) {
+                    sendMessage("send-key1", "key1-text", 1);
+                }
+            });
+
+            $("key2-text").addEventListener("keypress", (e) => {
+                if (e.key === "Enter" && !$("send-key2").disabled) {
+                    sendMessage("send-key2", "key2-text", 2);
+                }
+            });
+
+            $("url").addEventListener("keypress", (e) => {
+                if (e.key === "Enter" && !$("connect").disabled) {
+                    $("connect").click();
+                }
+            });
+
+            // ページを離れる時に長押しタイマーをクリア
+            window.addEventListener("beforeunload", () => {
+                stopLongPress(1);
+                stopLongPress(2);
+            });
+
+            // 初期ログメッセージ
+            log("🎯 WebSocket Client Ready - Enter URL to connect");
         </script>
     </body>
 </html>
