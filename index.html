@@ -86,6 +86,35 @@
                 display: flex;
                 gap: 1rem;
                 justify-content: center;
+                margin-bottom: 1rem;
+            }
+
+            .button-count-controls {
+                display: flex;
+                gap: 1rem;
+                justify-content: center;
+                align-items: center;
+                margin-bottom: 1rem;
+            }
+
+            .button-count-controls label {
+                color: #00d4ff;
+                font-weight: 600;
+            }
+
+            .button-count-controls select {
+                padding: 0.5rem 1rem;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+                border-radius: 8px;
+                background: rgba(0, 0, 0, 0.3);
+                color: #ffffff;
+                font-size: 1rem;
+            }
+
+            .button-count-controls select:focus {
+                outline: none;
+                border-color: #00d4ff;
+                box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
             }
 
             .btn {
@@ -146,11 +175,27 @@
 
             .main-controls {
                 display: grid;
-                grid-template-columns: 1fr 1fr;
                 gap: 3rem;
                 margin: 3rem 0;
                 height: 70vh;
                 min-height: 500px;
+            }
+
+            .main-controls.one-button {
+                grid-template-columns: 1fr;
+            }
+
+            .main-controls.two-buttons {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .main-controls.three-buttons {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+
+            .main-controls.four-buttons {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 1fr;
             }
 
             .control-card {
@@ -299,6 +344,16 @@
                     />
                 </div>
 
+                <div class="button-count-controls">
+                    <label for="button-count">ボタン数:</label>
+                    <select id="button-count">
+                        <option value="1" selected>1個</option>
+                        <option value="2">2個</option>
+                        <option value="3">3個</option>
+                        <option value="4">4個</option>
+                    </select>
+                </div>
+
                 <div class="connection-controls">
                     <button id="connect" class="btn btn-connect">
                         🔌 Connect
@@ -316,35 +371,11 @@
             </div>
 
             <div
-                class="main-controls"
+                class="main-controls one-button"
                 id="main-controls"
                 style="opacity: 0.3; pointer-events: none"
             >
-                <div class="control-card">
-                    <div class="control-title">💎 Action Button 1</div>
-                    <input
-                        id="key1-text"
-                        class="message-input"
-                        placeholder="Enter message..."
-                        type="text"
-                    />
-                    <button id="send-key1" class="btn-send key1" disabled>
-                        Send Message 1
-                    </button>
-                </div>
-
-                <div class="control-card">
-                    <div class="control-title">🔥 Action Button 2</div>
-                    <input
-                        id="key2-text"
-                        class="message-input"
-                        placeholder="Enter message..."
-                        type="text"
-                    />
-                    <button id="send-key2" class="btn-send key2" disabled>
-                        Send Message 2
-                    </button>
-                </div>
+                <!-- ボタンは動的に生成されます -->
             </div>
         </div>
 
@@ -352,10 +383,33 @@
             const $ = (id) => document.getElementById(id);
 
             let ws = null;
-            let longPressTimer1 = null;
-            let longPressTimer2 = null;
-            let isLongPressing1 = false;
-            let isLongPressing2 = false;
+            let longPressTimers = {};
+            let isLongPressing = {};
+            let buttonCount = 1;
+
+            // ボタンの色とアイコン
+            const buttonStyles = [
+                {
+                    gradient: "linear-gradient(45deg, #00d4ff, #0099cc)",
+                    shadow: "rgba(0, 212, 255, 0.4)",
+                    icon: "💎",
+                },
+                {
+                    gradient: "linear-gradient(45deg, #ff6b6b, #ee5a52)",
+                    shadow: "rgba(255, 107, 107, 0.4)",
+                    icon: "🔥",
+                },
+                {
+                    gradient: "linear-gradient(45deg, #5f27cd, #341f97)",
+                    shadow: "rgba(95, 39, 205, 0.4)",
+                    icon: "⚡",
+                },
+                {
+                    gradient: "linear-gradient(45deg, #00d2d3, #54a0ff)",
+                    shadow: "rgba(84, 160, 255, 0.4)",
+                    icon: "🚀",
+                },
+            ];
 
             // ログ出力関数
             function log(message) {
@@ -364,52 +418,137 @@
             }
 
             // メッセージ送信関数
-            function sendMessage(buttonId, messageInputId, buttonNumber) {
-                const m = $(messageInputId).value;
+            function sendMessage(buttonIndex) {
+                const messageInput = $(`key${buttonIndex}-text`);
+                const m = messageInput.value;
                 if (!ws || ws.readyState !== WebSocket.OPEN) {
                     log("❌ Not connected");
                     return false;
                 }
                 ws.send(m);
-                log(`🚀 SENT (Button ${buttonNumber}): ${m}`);
+                log(`🚀 SENT (Button ${buttonIndex}): ${m}`);
                 return true;
             }
 
             // 長押し処理開始
-            function startLongPress(buttonNumber) {
-                if (buttonNumber === 1) {
-                    isLongPressing1 = true;
-                    longPressTimer1 = setInterval(() => {
-                        if (isLongPressing1) {
-                            sendMessage("send-key1", "key1-text", 1);
-                        }
-                    }, 500);
-                } else if (buttonNumber === 2) {
-                    isLongPressing2 = true;
-                    longPressTimer2 = setInterval(() => {
-                        if (isLongPressing2) {
-                            sendMessage("send-key2", "key2-text", 2);
-                        }
-                    }, 500);
-                }
+            function startLongPress(buttonIndex) {
+                isLongPressing[buttonIndex] = true;
+                longPressTimers[buttonIndex] = setInterval(() => {
+                    if (isLongPressing[buttonIndex]) {
+                        sendMessage(buttonIndex);
+                    }
+                }, 500);
             }
 
             // 長押し処理停止
-            function stopLongPress(buttonNumber) {
-                if (buttonNumber === 1) {
-                    isLongPressing1 = false;
-                    if (longPressTimer1) {
-                        clearInterval(longPressTimer1);
-                        longPressTimer1 = null;
-                    }
-                } else if (buttonNumber === 2) {
-                    isLongPressing2 = false;
-                    if (longPressTimer2) {
-                        clearInterval(longPressTimer2);
-                        longPressTimer2 = null;
-                    }
+            function stopLongPress(buttonIndex) {
+                isLongPressing[buttonIndex] = false;
+                if (longPressTimers[buttonIndex]) {
+                    clearInterval(longPressTimers[buttonIndex]);
+                    longPressTimers[buttonIndex] = null;
                 }
             }
+
+            // 全ての長押しタイマーを停止
+            function stopAllLongPress() {
+                for (let i = 1; i <= 4; i++) {
+                    stopLongPress(i);
+                }
+            }
+
+            // ボタンのイベントリスナーを設定
+            function setupButtonEvents(buttonIndex) {
+                const sendButton = $(`send-key${buttonIndex}`);
+                const messageInput = $(`key${buttonIndex}-text`);
+
+                // クリックイベント
+                sendButton.onclick = () => {
+                    sendMessage(buttonIndex);
+                };
+
+                // マウス長押し処理
+                sendButton.addEventListener("mousedown", (e) => {
+                    if (e.button === 0 && !sendButton.disabled) {
+                        e.preventDefault();
+                        sendMessage(buttonIndex);
+                        startLongPress(buttonIndex);
+                    }
+                });
+
+                sendButton.addEventListener("mouseup", (e) => {
+                    if (e.button === 0) {
+                        stopLongPress(buttonIndex);
+                    }
+                });
+
+                sendButton.addEventListener("mouseleave", () => {
+                    stopLongPress(buttonIndex);
+                });
+
+                // タッチ長押し処理
+                sendButton.addEventListener("touchstart", (e) => {
+                    if (!sendButton.disabled) {
+                        e.preventDefault();
+                        sendMessage(buttonIndex);
+                        startLongPress(buttonIndex);
+                    }
+                });
+
+                sendButton.addEventListener("touchend", (e) => {
+                    e.preventDefault();
+                    stopLongPress(buttonIndex);
+                });
+
+                sendButton.addEventListener("touchcancel", (e) => {
+                    e.preventDefault();
+                    stopLongPress(buttonIndex);
+                });
+
+                // Enterキーでの送信
+                messageInput.addEventListener("keypress", (e) => {
+                    if (e.key === "Enter" && !sendButton.disabled) {
+                        sendMessage(buttonIndex);
+                    }
+                });
+            }
+
+            // ボタンを生成
+            function generateButtons(count) {
+                const mainControls = $("main-controls");
+                mainControls.innerHTML = "";
+
+                // CSSクラスを更新
+                mainControls.className = `main-controls ${count === 1 ? "one-button" : count === 2 ? "two-buttons" : count === 3 ? "three-buttons" : "four-buttons"}`;
+
+                for (let i = 1; i <= count; i++) {
+                    const style = buttonStyles[i - 1];
+                    const controlCard = document.createElement("div");
+                    controlCard.className = "control-card";
+                    controlCard.innerHTML = `
+                        <div class="control-title">${style.icon} Action Button ${i}</div>
+                        <input
+                            id="key${i}-text"
+                            class="message-input"
+                            placeholder="Enter message..."
+                            type="text"
+                        />
+                        <button id="send-key${i}" class="btn-send" disabled style="background: ${style.gradient}; box-shadow: 0 10px 40px ${style.shadow};">Send Message ${i}</button>
+                    `;
+                    mainControls.appendChild(controlCard);
+
+                    // イベントリスナーを設定
+                    setTimeout(() => setupButtonEvents(i), 0);
+                }
+
+                buttonCount = count;
+            }
+
+            // ボタン数変更イベント
+            $("button-count").addEventListener("change", (e) => {
+                const count = parseInt(e.target.value);
+                stopAllLongPress(); // 既存の長押しを停止
+                generateButtons(count);
+            });
 
             $("connect").onclick = () => {
                 const url = $("url").value.trim();
@@ -435,8 +574,10 @@
 
                     // UI の更新
                     $("disconnect").disabled = false;
-                    $("send-key1").disabled = false;
-                    $("send-key2").disabled = false;
+                    for (let i = 1; i <= buttonCount; i++) {
+                        const sendButton = $(`send-key${i}`);
+                        if (sendButton) sendButton.disabled = false;
+                    }
                     $("status").textContent = "● Connected";
                     $("status").className = "status-connected";
                     $("connection-section").classList.add("connected");
@@ -457,14 +598,15 @@
                     );
 
                     // 長押しタイマーをクリア
-                    stopLongPress(1);
-                    stopLongPress(2);
+                    stopAllLongPress();
 
                     // UI の復元
                     $("connect").disabled = false;
                     $("disconnect").disabled = true;
-                    $("send-key1").disabled = true;
-                    $("send-key2").disabled = true;
+                    for (let i = 1; i <= buttonCount; i++) {
+                        const sendButton = $(`send-key${i}`);
+                        if (sendButton) sendButton.disabled = true;
+                    }
                     $("status").textContent = "● Disconnected";
                     $("status").className = "status-disconnected";
                     $("connection-section").classList.remove("connected");
@@ -488,107 +630,6 @@
                 }
             };
 
-            // ボタン1のイベント設定
-            $("send-key1").onclick = () => {
-                sendMessage("send-key1", "key1-text", 1);
-            };
-
-            // マウス長押し処理 - ボタン1
-            $("send-key1").addEventListener("mousedown", (e) => {
-                if (e.button === 0 && !$("send-key1").disabled) {
-                    // 左クリックのみ
-                    e.preventDefault();
-                    sendMessage("send-key1", "key1-text", 1); // 最初の送信
-                    startLongPress(1);
-                }
-            });
-
-            $("send-key1").addEventListener("mouseup", (e) => {
-                if (e.button === 0) {
-                    stopLongPress(1);
-                }
-            });
-
-            $("send-key1").addEventListener("mouseleave", () => {
-                stopLongPress(1);
-            });
-
-            // タッチ長押し処理 - ボタン1
-            $("send-key1").addEventListener("touchstart", (e) => {
-                if (!$("send-key1").disabled) {
-                    e.preventDefault();
-                    sendMessage("send-key1", "key1-text", 1); // 最初の送信
-                    startLongPress(1);
-                }
-            });
-
-            $("send-key1").addEventListener("touchend", (e) => {
-                e.preventDefault();
-                stopLongPress(1);
-            });
-
-            $("send-key1").addEventListener("touchcancel", (e) => {
-                e.preventDefault();
-                stopLongPress(1);
-            });
-
-            // ボタン2のイベント設定
-            $("send-key2").onclick = () => {
-                sendMessage("send-key2", "key2-text", 2);
-            };
-
-            // マウス長押し処理 - ボタン2
-            $("send-key2").addEventListener("mousedown", (e) => {
-                if (e.button === 0 && !$("send-key2").disabled) {
-                    // 左クリックのみ
-                    e.preventDefault();
-                    sendMessage("send-key2", "key2-text", 2); // 最初の送信
-                    startLongPress(2);
-                }
-            });
-
-            $("send-key2").addEventListener("mouseup", (e) => {
-                if (e.button === 0) {
-                    stopLongPress(2);
-                }
-            });
-
-            $("send-key2").addEventListener("mouseleave", () => {
-                stopLongPress(2);
-            });
-
-            // タッチ長押し処理 - ボタン2
-            $("send-key2").addEventListener("touchstart", (e) => {
-                if (!$("send-key2").disabled) {
-                    e.preventDefault();
-                    sendMessage("send-key2", "key2-text", 2); // 最初の送信
-                    startLongPress(2);
-                }
-            });
-
-            $("send-key2").addEventListener("touchend", (e) => {
-                e.preventDefault();
-                stopLongPress(2);
-            });
-
-            $("send-key2").addEventListener("touchcancel", (e) => {
-                e.preventDefault();
-                stopLongPress(2);
-            });
-
-            // Enterキーでの送信をサポート
-            $("key1-text").addEventListener("keypress", (e) => {
-                if (e.key === "Enter" && !$("send-key1").disabled) {
-                    sendMessage("send-key1", "key1-text", 1);
-                }
-            });
-
-            $("key2-text").addEventListener("keypress", (e) => {
-                if (e.key === "Enter" && !$("send-key2").disabled) {
-                    sendMessage("send-key2", "key2-text", 2);
-                }
-            });
-
             $("url").addEventListener("keypress", (e) => {
                 if (e.key === "Enter" && !$("connect").disabled) {
                     $("connect").click();
@@ -597,9 +638,11 @@
 
             // ページを離れる時に長押しタイマーをクリア
             window.addEventListener("beforeunload", () => {
-                stopLongPress(1);
-                stopLongPress(2);
+                stopAllLongPress();
             });
+
+            // 初期化：デフォルトで1つのボタンを生成
+            generateButtons(1);
 
             // 初期ログメッセージ
             log("🎯 WebSocket Client Ready - Enter URL to connect");
