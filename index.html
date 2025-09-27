@@ -470,7 +470,7 @@
 
             <div class="setup-section" id="setup-section">
                 <h2>⚙️ Setup Messages</h2>
-                
+
                 <div class="button-count-controls">
                     <label for="button-count">ボタン数:</label>
                     <select id="button-count">
@@ -497,6 +497,11 @@
 
         <script>
             const $ = (id) => document.getElementById(id);
+            
+            const storagedUrl = localStorage.getItem('url');
+            if (storagedUrl) {
+              $("url").value = storagedUrl;
+            }
 
             let ws = null;
             let longPressTimers = {};
@@ -676,7 +681,7 @@
                     const style = buttonStyles[i - 1];
                     const controlCard = document.createElement("div");
                     controlCard.className = "control-card";
-                    
+
                     const message = messagePresets[i] || `Message ${i}`;
                     controlCard.innerHTML = `
                         <div class="control-title">${style.icon} ${message}</div>
@@ -707,6 +712,8 @@
                     );
                     return;
                 }
+
+                localStorage.setItem("url", url);
 
                 // 空のメッセージがないかチェック
                 let hasEmptyMessage = false;
@@ -817,7 +824,9 @@
             generateMessageSetup(1);
 
             // 初期ログメッセージ
-            log("🎯 WebSocket Client Ready - Enter URL and messages to connect");
+            log(
+                "🎯 WebSocket Client Ready - Enter URL and messages to connect",
+            );
         </script>
     </body>
 </html>
