@@ -49,6 +49,99 @@
                 border-color: rgba(0, 255, 0, 0.3);
             }
 
+            .setup-section {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 2rem;
+                margin-bottom: 2rem;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                transition: all 0.3s ease;
+            }
+
+            .setup-section.hidden {
+                opacity: 0;
+                transform: translateY(-20px);
+                pointer-events: none;
+                height: 0;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+            }
+
+            .setup-section h2 {
+                text-align: center;
+                margin-bottom: 2rem;
+                font-size: 2rem;
+                background: linear-gradient(45deg, #ffa502, #ff6348);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                text-shadow: 0 0 20px rgba(255, 165, 2, 0.3);
+            }
+
+            .message-setup-grid {
+                display: grid;
+                gap: 2rem;
+                margin-top: 2rem;
+            }
+
+            .message-setup-grid.one-button {
+                grid-template-columns: 1fr;
+            }
+
+            .message-setup-grid.two-buttons {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .message-setup-grid.three-buttons {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+
+            .message-setup-grid.four-buttons {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 1fr;
+            }
+
+            .setup-card {
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(5px);
+                border-radius: 15px;
+                padding: 2rem;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                transition: all 0.3s ease;
+            }
+
+            .setup-card:hover {
+                border-color: rgba(255, 255, 255, 0.3);
+                transform: translateY(-5px);
+            }
+
+            .setup-card-title {
+                font-size: 1.5rem;
+                font-weight: 600;
+                margin-bottom: 1rem;
+                text-align: center;
+                color: #00d4ff;
+            }
+
+            .setup-input {
+                width: 100%;
+                padding: 1rem;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+                border-radius: 12px;
+                background: rgba(0, 0, 0, 0.3);
+                color: #ffffff;
+                font-size: 1rem;
+                transition: all 0.3s ease;
+            }
+
+            .setup-input:focus {
+                outline: none;
+                border-color: #00d4ff;
+                box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+            }
+
             .url-input-group {
                 display: flex;
                 gap: 1rem;
@@ -95,6 +188,7 @@
                 justify-content: center;
                 align-items: center;
                 margin-bottom: 1rem;
+                transition: all 0.3s ease;
             }
 
             .button-count-controls label {
@@ -239,11 +333,18 @@
                 text-align: center;
             }
 
-            .message-input:focus {
+            .message-input:focus:not(:disabled) {
                 outline: none;
                 border-color: #00d4ff;
                 box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
                 transform: scale(1.05);
+            }
+
+            .message-input:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                border-color: rgba(255, 255, 255, 0.1);
+                background: rgba(0, 0, 0, 0.2);
             }
 
             .btn-send {
@@ -296,6 +397,13 @@
                 box-shadow: 0 20px 60px rgba(255, 107, 107, 0.6);
             }
 
+            .locked-indicator {
+                margin-top: 0.5rem;
+                font-size: 0.9rem;
+                color: #ffa502;
+                display: none;
+            }
+
             /* アニメーション */
             @keyframes pulse {
                 0% {
@@ -344,16 +452,6 @@
                     />
                 </div>
 
-                <div class="button-count-controls">
-                    <label for="button-count">ボタン数:</label>
-                    <select id="button-count">
-                        <option value="1" selected>1個</option>
-                        <option value="2">2個</option>
-                        <option value="3">3個</option>
-                        <option value="4">4個</option>
-                    </select>
-                </div>
-
                 <div class="connection-controls">
                     <button id="connect" class="btn btn-connect">
                         🔌 Connect
@@ -367,6 +465,24 @@
                     <span id="status" class="status-disconnected"
                         >● Disconnected</span
                     >
+                </div>
+            </div>
+
+            <div class="setup-section" id="setup-section">
+                <h2>⚙️ Setup Messages</h2>
+                
+                <div class="button-count-controls">
+                    <label for="button-count">ボタン数:</label>
+                    <select id="button-count">
+                        <option value="1" selected>1個</option>
+                        <option value="2">2個</option>
+                        <option value="3">3個</option>
+                        <option value="4">4個</option>
+                    </select>
+                </div>
+
+                <div class="message-setup-grid" id="message-setup-grid">
+                    <!-- メッセージ設定エリアは動的に生成 -->
                 </div>
             </div>
 
@@ -386,6 +502,8 @@
             let longPressTimers = {};
             let isLongPressing = {};
             let buttonCount = 1;
+            let isConnected = false;
+            let messagePresets = {}; // メッセージのプリセットを保存
 
             // ボタンの色とアイコン
             const buttonStyles = [
@@ -419,14 +537,13 @@
 
             // メッセージ送信関数
             function sendMessage(buttonIndex) {
-                const messageInput = $(`key${buttonIndex}-text`);
-                const m = messageInput.value;
+                const message = messagePresets[buttonIndex] || "";
                 if (!ws || ws.readyState !== WebSocket.OPEN) {
                     log("❌ Not connected");
                     return false;
                 }
-                ws.send(m);
-                log(`🚀 SENT (Button ${buttonIndex}): ${m}`);
+                ws.send(message);
+                log(`🚀 SENT (Button ${buttonIndex}): ${message}`);
                 return true;
             }
 
@@ -456,10 +573,52 @@
                 }
             }
 
+            // セットアップエリアのメッセージ設定を生成
+            function generateMessageSetup(count) {
+                const setupGrid = $("message-setup-grid");
+                setupGrid.innerHTML = "";
+                setupGrid.className = `message-setup-grid ${count === 1 ? "one-button" : count === 2 ? "two-buttons" : count === 3 ? "three-buttons" : "four-buttons"}`;
+
+                for (let i = 1; i <= count; i++) {
+                    const style = buttonStyles[i - 1];
+                    const setupCard = document.createElement("div");
+                    setupCard.className = "setup-card";
+                    setupCard.innerHTML = `
+                        <div class="setup-card-title">${style.icon} Button ${i} Message</div>
+                        <input
+                            id="setup-key${i}"
+                            class="setup-input"
+                            placeholder="Enter message for button ${i}..."
+                            type="text"
+                            value="${messagePresets[i] || ""}"
+                        />
+                    `;
+                    setupGrid.appendChild(setupCard);
+
+                    // 入力イベントリスナーを追加
+                    setTimeout(() => {
+                        const input = $(`setup-key${i}`);
+                        input.addEventListener("input", (e) => {
+                            messagePresets[i] = e.target.value;
+                        });
+                    }, 0);
+                }
+            }
+
+            // 入力フィールドのロック状態を設定
+            function setInputsLocked(locked) {
+                // セットアップセクションの表示/非表示
+                const setupSection = $("setup-section");
+                if (locked) {
+                    setupSection.classList.add("hidden");
+                } else {
+                    setupSection.classList.remove("hidden");
+                }
+            }
+
             // ボタンのイベントリスナーを設定
             function setupButtonEvents(buttonIndex) {
                 const sendButton = $(`send-key${buttonIndex}`);
-                const messageInput = $(`key${buttonIndex}-text`);
 
                 // クリックイベント
                 sendButton.onclick = () => {
@@ -503,13 +662,6 @@
                     e.preventDefault();
                     stopLongPress(buttonIndex);
                 });
-
-                // Enterキーでの送信
-                messageInput.addEventListener("keypress", (e) => {
-                    if (e.key === "Enter" && !sendButton.disabled) {
-                        sendMessage(buttonIndex);
-                    }
-                });
             }
 
             // ボタンを生成
@@ -524,15 +676,11 @@
                     const style = buttonStyles[i - 1];
                     const controlCard = document.createElement("div");
                     controlCard.className = "control-card";
+                    
+                    const message = messagePresets[i] || `Message ${i}`;
                     controlCard.innerHTML = `
-                        <div class="control-title">${style.icon} Action Button ${i}</div>
-                        <input
-                            id="key${i}-text"
-                            class="message-input"
-                            placeholder="Enter message..."
-                            type="text"
-                        />
-                        <button id="send-key${i}" class="btn-send" disabled style="background: ${style.gradient}; box-shadow: 0 10px 40px ${style.shadow};">Send Message ${i}</button>
+                        <div class="control-title">${style.icon} ${message}</div>
+                        <button id="send-key${i}" class="btn-send" disabled style="background: ${style.gradient}; box-shadow: 0 10px 40px ${style.shadow};">Send</button>
                     `;
                     mainControls.appendChild(controlCard);
 
@@ -548,6 +696,7 @@
                 const count = parseInt(e.target.value);
                 stopAllLongPress(); // 既存の長押しを停止
                 generateButtons(count);
+                generateMessageSetup(count); // セットアップエリアも更新
             });
 
             $("connect").onclick = () => {
@@ -556,6 +705,20 @@
                     alert(
                         "wss URL を入力してください（例: wss://abcd1234.ngrok.io）",
                     );
+                    return;
+                }
+
+                // 空のメッセージがないかチェック
+                let hasEmptyMessage = false;
+                for (let i = 1; i <= buttonCount; i++) {
+                    if (!messagePresets[i] || !messagePresets[i].trim()) {
+                        hasEmptyMessage = true;
+                        break;
+                    }
+                }
+
+                if (hasEmptyMessage) {
+                    alert("全てのボタンにメッセージを入力してください。");
                     return;
                 }
 
@@ -571,6 +734,7 @@
 
                 ws.onopen = () => {
                     log("✅ CONNECTION ESTABLISHED");
+                    isConnected = true;
 
                     // UI の更新
                     $("disconnect").disabled = false;
@@ -584,7 +748,10 @@
                     $("main-controls").style.opacity = "1";
                     $("main-controls").style.pointerEvents = "auto";
 
-                    // URL入力欄を非表示
+                    // 入力をロック
+                    setInputsLocked(true);
+
+                    // URLの入力欄を非表示
                     $("url-input-group").classList.add("hidden");
                 };
 
@@ -596,6 +763,7 @@
                     log(
                         `❌ CONNECTION CLOSED (code=${ev.code}, reason=${ev.reason})`,
                     );
+                    isConnected = false;
 
                     // 長押しタイマーをクリア
                     stopAllLongPress();
@@ -613,7 +781,10 @@
                     $("main-controls").style.opacity = "0.3";
                     $("main-controls").style.pointerEvents = "none";
 
-                    // URL入力欄を表示
+                    // 入力のロックを解除
+                    setInputsLocked(false);
+
+                    // URLの入力欄を表示
                     $("url-input-group").classList.remove("hidden");
                 };
 
@@ -643,9 +814,10 @@
 
             // 初期化：デフォルトで1つのボタンを生成
             generateButtons(1);
+            generateMessageSetup(1);
 
             // 初期ログメッセージ
-            log("🎯 WebSocket Client Ready - Enter URL to connect");
+            log("🎯 WebSocket Client Ready - Enter URL and messages to connect");
         </script>
     </body>
 </html>
